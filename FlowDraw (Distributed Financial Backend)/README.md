@@ -23,3 +23,6 @@ The contract does not force users to wait for a rigid timer if demand is high, n
 // Triggers if the time interval has passed OR the ticket cap is reached
 bool timeConditionMet = (lastDrawTime == 0) || (block.timestamp >= lastDrawTime + drawInterval);
 bool ticketCapReached = totalTickets >= maxTicketsPerDraw;
+```
+
+<sub>[⬅ Back to Main Page](https://github.com/cryp-moh-graphy/software-engineering-portfolio)</sub>
