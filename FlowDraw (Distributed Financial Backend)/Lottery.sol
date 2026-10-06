@@ -130,9 +130,6 @@ contract Lottery is ILottery {
         hostCut = hostTicketFee;
         prizePool += msg.value - hostCut;
 
-        (bool sent, ) = host.call{value: hostCut}("");
-        require(sent, "Owner was not payed.");
-
         participantsToTickets[msg.sender].ticketNumbers.push(ticketNumbers);
         participantsToTickets[msg.sender].numberOfTickets += 1;
 
@@ -142,6 +139,10 @@ contract Lottery is ILottery {
         }
 
         totalTickets += 1;
+
+        // Interaction last: all state is final before control leaves the contract.
+        (bool sent, ) = host.call{value: hostCut}("");
+        require(sent, "Owner was not payed.");
 
         emit ParticipantJoined(msg.sender, "joined");
     }
@@ -184,7 +185,7 @@ contract Lottery is ILottery {
     function findWinner() external {
         require(drawInitiated, "Draw not initiated.");
         require(
-            block.number >= drawBlockNumber,
+            block.number > drawBlockNumber,
             "Target block hasn't arrived yet."
         );
         require(!ended, "Lottery already ended.");
@@ -193,7 +194,7 @@ contract Lottery is ILottery {
 
         require(
             futureBlockHash != bytes32(0),
-            "Block hash unavailable or too old."
+            "Block hash expired. Call restartDraw()."
         );
 
         uint256 randomSeed = uint256(
@@ -229,7 +230,9 @@ contract Lottery is ILottery {
             }
         }
 
-        prizePool = 0;
+        // Carry the pool forward when nobody wins; only the paid-out amount leaves it
+        // (integer-division dust also stays in the pool).
+        prizePool -= amountPerWinner * winners.length;
         totalTickets = 0;
         drawInitiated = false;
         ended = false;
@@ -238,6 +241,24 @@ contract Lottery is ILottery {
             delete participantsToTickets[participantAddresses[i]];
         }
         delete participantAddresses;
+    }
+
+    /**
+     * @notice Recovers a draw whose target blockhash has expired (older than 256 blocks).
+     * @dev blockhash() returns 0 for blocks older than 256, which would make findWinner()
+     * revert forever. Anyone may re-arm the draw with a fresh future block. Tickets stay
+     * locked (drawInitiated remains true), so the new entropy block is still unknown
+     * to every participant at purchase time.
+     */
+    function restartDraw() external {
+        require(drawInitiated, "Draw not initiated.");
+        require(
+            block.number > drawBlockNumber + 256,
+            "Target block hash is still available."
+        );
+
+        drawBlockNumber = block.number + 5;
+        emit DrawRestarted(drawBlockNumber);
     }
 
     /**
