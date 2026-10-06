@@ -23,6 +23,10 @@ interface ILottery {
     /// @param amount The total ETH transferred to the winner.
     event PrizeClaimed(address winner, uint256 amount);
 
+    /// @notice Emitted when an expired draw is re-armed with a new target block.
+    /// @param newDrawBlockNumber The new future block whose hash will seed the draw.
+    event DrawRestarted(uint256 newDrawBlockNumber);
+
     /// @notice Configures the mandatory time delay between consecutive lottery draws.
     /// @param _interval The new interval duration in seconds. Must fall within a 1 to 30-day range.
     function setDrawInterval(uint256 _interval) external;
@@ -50,6 +54,10 @@ interface ILottery {
     /// @notice Concludes the active draw phase and determines the winning ticket.
     /// @dev Execution requires prior invocation of startLottery() and validation that the target randomness block has been mined.
     function findWinner() external;
+
+    /// @notice Re-arms a draw whose target blockhash is older than 256 blocks.
+    /// @dev Reverts unless a draw is initiated and its target block hash has expired.
+    function restartDraw() external;
 
     /// @notice Executes a pull-payment transfer for the caller's allocated winnings.
     /// @dev Implements the pull-over-push pattern to mitigate reentrancy and denial-of-service vectors during prize distribution.
